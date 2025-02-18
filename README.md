@@ -1,2 +1,2 @@
 # BBS3004
-NSCLC project
+This repository is for documenting the NSCLC project for Group 2

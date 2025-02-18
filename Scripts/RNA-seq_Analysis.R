@@ -167,4 +167,3 @@ dds <- dds[keep2,]
 # Choose one either rowmeans or rowsum
 
 # set the factor level
-dds$ <- relevel(dds$dexamethasone, ref = "untreated")

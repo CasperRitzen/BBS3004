@@ -81,6 +81,9 @@ expression_long <- expression_long %>%
 # View the structure of the transformed data
 print(head(expression_long))
 
+# Replace NA in Sex column with "Control"
+expression_long$Sex[is.na(expression_long$Sex)] <- "Control"
+
 # Plot expression levels of selected genes
 ggplot(expression_long, aes(x = Sample, y = Expression, fill = Gene)) +
   geom_bar(stat = "identity", position = "dodge") +

@@ -81,8 +81,8 @@ expression_long <- expression_long %>%
 # View the structure of the transformed data
 print(head(expression_long))
 
-# Replace NA in Sex column with "Control"
-expression_long$Sex[is.na(expression_long$Sex)] <- "Control"
+# Replace NA in Life_Status column with "Control"
+expression_long$Life_Status[is.na(expression_long$Life_Status)] <- "Control"
 
 # Plot expression levels of selected genes
 ggplot(expression_long, aes(x = Sample, y = Expression, fill = Gene)) +
@@ -95,26 +95,26 @@ ggplot(expression_long, aes(x = Sample, y = Expression, fill = Gene)) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))  # Rotate sample labels
 
 
-# Boxplot of gene expression by sex
-ggplot(expression_long, aes(x = Sex, y = Expression, fill = Sex)) +
+# Boxplot of gene expression by Life_Status
+ggplot(expression_long, aes(x = Life_Status, y = Expression, fill = Life_Status)) +
   geom_boxplot(alpha = 0.7, outlier.shape = NA) +  # Transparent boxplot
   geom_jitter(width = 0.2, alpha = 0.6) +  # Adds individual points for visibility
   facet_wrap(~ Gene, scales = "free_y") +  # Separate plots for each gene
   theme_minimal() +
-  labs(title = "Gene Expression Levels by Sex",
-       x = "Sex",
+  labs(title = "Gene Expression Levels by Life_Status",
+       x = "Life_Status",
        y = "Expression Level") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))  # Rotate labels for readability
 
 
 # Alternatively, you can use a violin plot
-ggplot(expression_long, aes(x = Sex, y = Expression, fill = Sex)) +
+ggplot(expression_long, aes(x = Life_Status, y = Expression, fill = Life_Status)) +
   geom_violin(alpha = 0.6) +  # Shows density of expression levels
   geom_jitter(width = 0.2, alpha = 0.7) +  # Adds individual sample points
   facet_wrap(~ Gene, scales = "free_y") +  # Separate plots per gene
   theme_minimal() +
-  labs(title = "Gene Expression Levels by Sex",
-       x = "Sex",
+  labs(title = "Gene Expression Levels by Life_Status",
+       x = "Life_Status",
        y = "Expression Level") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 

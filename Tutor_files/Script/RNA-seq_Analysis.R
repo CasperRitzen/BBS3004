@@ -1,4 +1,6 @@
-# This is script for RNA-seq Analysis
+#======================================================#
+# This script is used for RNA-seq Analysis for BBS3004 #
+#======================================================#
 
 # Load Libraries for RNA-seq Data Analysis
 library(DESeq2)
@@ -162,16 +164,19 @@ dds
 keep <- rowMeans(counts(dds)) >=10
 dds <- dds[keep,]
 dds
-# Choose one either rowmeans or rowsum
 
 # set the factor level
 dds$Source <- relevel(dds$Source, ref = "Human non-malignant tissue")
 
 # Run DESeq 
-dds <- DESeq(dds)
-res <- results(dds)
+dds <- DESeq(dds) # Deseq runs its normalization, and compares the two specified condition/groups (i.e. Human NSCLC tissue vs Human non-malignant tissue... etc)
+res <- results(dds) # This gives you the differentially Expressed Genes (DEGs)
 
 res
 
 summary(res)
 plotMA(res)
+
+# Export DEG's to a tsv file
+res_df <- data.frame(Gene = rownames(res), res, row.names = NULL)  # Move row names to first column
+write.table(res_df, file = "DEG's_CancervsNon_Cancer_Cells.tsv", sep = "\t", quote = FALSE, row.names = FALSE, col.names = TRUE)

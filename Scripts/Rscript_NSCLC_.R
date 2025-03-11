@@ -84,6 +84,18 @@ print(head(expression_long))
 # Replace NA in Life_Status column with "Control"
 expression_long$Life_Status[is.na(expression_long$Life_Status)] <- "Control"
 
+# Remove the "L790T" sample from expression_long
+expression_long <- expression_long %>%
+  filter(Sample != "L790T")
+
+# Update the metadata to remove "L790T" sample
+metadata <- metadata %>%
+  filter(Sample != "L790T")
+
+# Check the structure and first few rows of the updated metadata
+str(metadata)
+head(metadata)
+
 # Plot expression levels of selected genes
 ggplot(expression_long, aes(x = Sample, y = Expression, fill = Gene)) +
   geom_bar(stat = "identity", position = "dodge") +

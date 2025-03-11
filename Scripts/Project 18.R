@@ -161,9 +161,19 @@ dds
 keep <- rowSums(counts(dds)) >= 10
 dds <- dds[keep,]
 
-keep2 <- rowMeans(counts(dds)) >=10
-dds <- dds[keep2,]
-
-# Choose one either rowmeans or rowsum
-
 # set the factor level
+dds$Source <- relevel(dds$Source, ref = "Human non-malignant tissue")
+
+# Run DESeq 
+dds <- DESeq(dds)
+res <- results(dds)
+
+# Explore results
+summary(res)
+res0.01 <- results(dds, alpha = 0.01)
+
+# Contrasts
+resultsNames(dds)
+
+
+plotMA(res)

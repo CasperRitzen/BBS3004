@@ -139,16 +139,18 @@ dds <- DESeqDataSetFromMatrix(countData = Data,
 
 #recoding smoking status
 metadata$Smoking_Status <- recode(metadata$Smoking_Status, 
-                                  "1" = "Non_Smoker", 
-                                  "2" = "Smoker", 
-                                  "3" = "Unknown") 
+                                  "1" = "Current", 
+                                  "2" = "ex > 1 year", 
+                                  "3" = "Never") 
 
 #turning NA into Control
 metadata$Smoking_Status[is.na(metadata$Smoking_Status)] <- "Control"
 
-#removing non-malignant tissues since iam comparing smking to non smoking in cancer
-metadata_filtered <- metadata %>% filter(!is.na(Smoking_Status))
-Data_filtered <- Data[, colnames(Data) %in% rownames(metadata_filtered)]
+# Construct a DESeqDataSet object 
+dds <- DESeqDataSetFromMatrix(countData = Data,
+                              colData = metadata,
+                              design = ~ Smoking_Status)
+
 
 # Quality control
 # Remove genes with low counts
@@ -156,8 +158,18 @@ Data_filtered <- Data[, colnames(Data) %in% rownames(metadata_filtered)]
 keep2 <- rowMeans(counts(dds)) >=10
 dds <- dds[keep2,]
 #set factor level
-dds$Smoking_Status <- relevel(dds_filtered$Smoking_Status, ref = "Non_Smoker")
+dds$Smoking_Status <- relevel(dds$Smoking_Status, ref = "Never")
 
-##################
-#new try
+#run dds
+dds <- DESeq(dds)
+res <- results(dds)
+res
+#Explore results
+summary(res)
+res0.05 <- results(dds, alpha = 0.05)
+summary(res0.05)
+#contrast
+results(dds, contrast = c("Current", "ex", "Control"))
+#MA plot
+plotMA(res0.05)
 

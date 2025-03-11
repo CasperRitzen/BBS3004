@@ -119,38 +119,26 @@ ggplot(expression_long, aes(x = Sex, y = Expression, fill = Sex)) +
 # Differential Gene Expression Analysis #
 #=======================================#
 # Deseq2
-# making sure the row names in metadata matches to column names in Data
-all(colnames(Data) %in% rownames(metadata))
+# Load Raw counts file
+Counts <- read.delim("Raw_Counts_GSE81089.tsv", header=TRUE, row.names=1, sep="\t", check.names = FALSE)
 
-# Find Columns in Data That Are Not in metadata
-setdiff(colnames(Data), rownames(metadata))
-
-# Remove everything after the underscore in Data
-colnames(Data) <- sub("_.*", "", colnames(Data))
-
-# Check again if row names in metadata matches to column names in Data
-all(colnames(Data) %in% rownames(metadata))
+# making sure the row names in metadata matches to column names in Counts
+all(colnames(Counts) %in% rownames(metadata))
 
 # Check if they are in the same order
-all(colnames(Data) == rownames(metadata))
+all(colnames(Counts) == rownames(metadata))
 
-# Reorder metadata rows to match the column order in Data
-metadata <- metadata[match(colnames(Data), rownames(metadata)), , drop = FALSE]
+# Reorder metadata rows to match the column order in Counts
+metadata <- metadata[match(colnames(Counts), rownames(metadata)), , drop = FALSE]
 
 # Check if they now match
-all(colnames(Data) == rownames(metadata))
+all(colnames(Counts) == rownames(metadata))
 
-# Check the values in the data
-summary(Data)
-
-# Convert all data values to Absolute values. (Non-negative)
-Data <- abs(Data)
-
-# Round values to integers
-Data <- round(Data)
+# Check the values in the Counts file
+summary(Counts)
 
 # Construct a DESeqDataSet object 
-dds <- DESeqDataSetFromMatrix(countData = Data,
+dds <- DESeqDataSetFromMatrix(countData = Counts,
                               colData = metadata,
                               design = ~ Source)
 
@@ -158,8 +146,10 @@ dds
 
 # Quality control
 # Remove genes with low counts
-keep <- rowSums(counts(dds)) >= 10
+keep <- rowMeans(counts(dds)) >=10
 dds <- dds[keep,]
+dds
+# Choose one either rowmeans or rowsum
 
 # set the factor level
 dds$Source <- relevel(dds$Source, ref = "Human non-malignant tissue")
@@ -168,12 +158,8 @@ dds$Source <- relevel(dds$Source, ref = "Human non-malignant tissue")
 dds <- DESeq(dds)
 res <- results(dds)
 
-# Explore results
+res
+
 summary(res)
-res0.01 <- results(dds, alpha = 0.01)
-
-# Contrasts
-resultsNames(dds)
-
-
 plotMA(res)
+

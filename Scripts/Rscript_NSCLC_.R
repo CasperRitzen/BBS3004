@@ -81,8 +81,9 @@ expression_long <- expression_long %>%
 # View the structure of the transformed data
 print(head(expression_long))
 
-# Replace NA in Life_Status column with "Control"
-expression_long$Life_Status[is.na(expression_long$Life_Status)] <- "Control"
+# Replace NA values with "Control" in metadata
+metadata <- metadata %>%
+  mutate(across(everything(), ~replace_na(.x, "Control")))
 
 # Remove the "L790T" sample from expression_long
 expression_long <- expression_long %>%

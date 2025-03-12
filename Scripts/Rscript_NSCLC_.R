@@ -85,6 +85,9 @@ print(head(expression_long))
 metadata <- metadata %>%
   mutate(across(everything(), ~replace_na(.x, "Control")))
 
+# Replace NA in Life_Status column with "Control"
+expression_long$Life_Status[is.na(expression_long$Life_Status)] <- "Control"
+
 # Remove the "L790T" sample from expression_long
 expression_long <- expression_long %>%
   filter(Sample != "L790T")
@@ -160,18 +163,30 @@ Data <- round(Data)
 # Construct a DESeqDataSet object 
 dds <- DESeqDataSetFromMatrix(countData = Data,
                               colData = metadata,
-                              design = ~ Source)
+                              design = ~ Life_Status)
 
 dds
 
 # Quality control
 # Remove genes with low counts
-keep <- rowSums(counts(dds)) >= 10
-dds <- dds[keep,]
-
 keep2 <- rowMeans(counts(dds)) >=10
 dds <- dds[keep2,]
 
-# Choose one either rowmeans or rowsum
+dds
 
 # set the factor level
+dds$Life_Status <- relevel(dds$Life_Status, ref = "Control")
+
+# Run DESeq 
+dds <- DESeq(dds) # Deseq runs its normalization, and compares the two specified condition/groups (i.e. Human NSCLC tissue vs Human non-malignant tissue... etc)
+res <- results(dds) # This gives you the differentially Expressed Genes (DEGs)
+
+res
+
+summary(res)
+plotMA(res)
+
+# Export DEG's to a tsv file
+res_df <- data.frame(Gene = rownames(res), res, row.names = NULL)  # Move row names to first column
+write.table(res_df, file = "DEG's_CancervsNon_Cancer_Cells.tsv", sep = "\t", quote = FALSE, row.names = FALSE, col.names = TRUE)
+

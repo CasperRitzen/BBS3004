@@ -91,6 +91,8 @@ ggplot(expression_long, aes(x = Sample, y = Expression, fill = Gene)) +
        y = "Expression Level") +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))  # Rotate sample labels
 
+# Replace NA values in the Sample column with "Control"
+expression_long$Sex[is.na(expression_long$Sex)] <- "Control"
 
 # Boxplot of gene expression by sex
 ggplot(expression_long, aes(x = Sex, y = Expression, fill = Sex)) +
@@ -137,6 +139,12 @@ all(colnames(Counts) == rownames(metadata))
 # Check the values in the Counts file
 summary(Counts)
 
+# Convert all data values to Absolute values. (Non-negative)
+Data <- abs(Counts)
+
+# Round values to integers
+Data <- round(Counts)
+
 # Construct a DESeqDataSet object 
 dds <- DESeqDataSetFromMatrix(countData = Counts,
                               colData = metadata,
@@ -146,10 +154,8 @@ dds
 
 # Quality control
 # Remove genes with low counts
-keep <- rowMeans(counts(dds)) >=10
+keep <- rowMeans(counts(dds)) >=10 # Choose one either rowmeans or rowsum
 dds <- dds[keep,]
-dds
-# Choose one either rowmeans or rowsum
 
 # set the factor level
 dds$Source <- relevel(dds$Source, ref = "Human non-malignant tissue")
@@ -160,6 +166,80 @@ res <- results(dds)
 
 res
 
+# Explore results
 summary(res)
+res0.01 <- results(dds, alpha =0.01) #Question sig 0.01 or 0.05
+summary(res0.01)
+
+# MA plot
 plotMA(res)
+
+
+#=======================================#
+# Individual analysis Sex #
+#=======================================#
+
+# Redefine genes of interest
+genes_of_interest <- c("ENSG00000146648", "ENSG00000118046", "ENSG00000157764") #Should I use MOET for this?
+
+# Ensure that Sex is a categorical variable in metadata
+table(metadata$Sex)  # Check the levels of Sex
+
+# Replace NA values with "Control"
+metadata$Sex[is.na(metadata$Sex)] <- "Control"
+metadata$Sex <- as.factor(metadata$Sex)  # Ensure it's a factor
+
+# Construct a DESeqDataSet object with variable Sex
+dds_sex <- DESeqDataSetFromMatrix(countData = Counts,
+                                  colData = metadata,
+                                  design = ~ Sex)  # Change the design to Sex
+dds_sex
+
+# Quality control
+# Remove genes with low counts
+keep <- rowMeans(counts(dds_sex)) >= 10
+dds_sex <- dds_sex[keep,]
+
+levels(dds_sex$Sex) #Checking to see if I should use Male or male in the next code. I should use male.
+
+# Setting "male" (or another reference category) as the baseline to compare males vs. females
+dds_sex$Sex <- relevel(dds_sex$Sex, ref = "male")  # Adjust reference if needed
+
+# Run DESeq 
+dds_sex <- DESeq(dds_sex)
+res_sex <- results(dds_sex)
+
+res_sex
+
+# Explore results
+summary(res_sex)
+res_sex_0.05 <- results(dds_sex, alpha = 0.05) #Again how do we determine which sig (0.05 or 0.01)?
+summary(res_sex_0.05)
+
+# Extract and Sort Significant Genes
+res_sex_sorted <- res_sex[order(res_sex$padj), ]  # Sort by adjusted p-value
+sig_genes <- subset(res_sex_sorted, padj < 0.05)  # Select significant genes
+head(sig_genes, 10)  # View top 10 significant genes
+
+# MA Plot 
+plotMA(res_sex, main = "MA Plot for Sex", ylim = c(-5, 5))
+
+# Boxplot of Expression Levels for Specific Genes
+gene_of_interest <- "ENSG00000118046"  # Change to any gene of interest
+gene_counts <- plotCounts(dds_sex, gene = gene_of_interest, intgroup = "Sex", returnData = TRUE)
+
+ggplot(gene_counts, aes(x = Sex, y = count, fill = Sex)) +
+  geom_boxplot() +
+  theme_minimal() +
+  labs(title = paste("Expression of", gene_of_interest, "by Sex"),
+       x = "Sex",
+       y = "Normalized Count")
+
+# Export DEG's to a tsv file
+res_df <- data.frame(Gene = rownames(res), res, row.names = NULL)  # Move row names to first column
+write.table(res_df, file = "DEG's_CancervsNon_Cancer_Cells.tsv", sep = "\t", quote = FALSE, row.names = FALSE, col.names = TRUE)
+
+
+
+
 

@@ -1,55 +1,41 @@
-1+1
-3+7
-if (!require("BiocManager", quietly = TRUE))
-  install.packages("BiocManager")
-
-BiocManager::install("DESeq2")
-if (!require("BiocManager", quietly = TRUE))
-  install.packages("BiocManager")
-
-BiocManager::install("DESeq2")
-library(deseq2)
+# Load Libraries for RNA-seq Data Analysis
 library(DESeq2)
 library(dplyr)
-
-library(GEOquery)
-if (!require("BiocManager", quietly = TRUE))
-  install.packages("BiocManager")
-
-BiocManager::install("GEOquery")
-library(GEOquery)
-library(GEOquery)
-
-#script
-libary(tidyverse)
-install.packages("tidyverse")
 library(tidyverse)
-library(DEseq2)
-libary(DESeq2)
+library(GEOquery)
 
-setwd("downloads/bbs3004/data")
-library(DESeq2)
-gse <- getGEO(GEO = 'FPKM, GSEMatrix = true')
+# Set your working Directory
+setwd("/Users/sofiabaars/Downloads/BBS3004/Data/")
 
-# Load data
-Data <- read.delim("FPKM_cufflinks.tsv", header=TRUE, row.names=1, sep="\t", check.names = FALSE)
-Data <- read.delim("FPKM_cufflinks.tsv", header=TRUE, row.names=1, sep="\t", check.names = FALSE)
+#=======================================#
+# Step 1. Import Data & metadata into R #
+#=======================================#
 
-# get Metadata, description of data
+# Load your Data
+Data <- read.delim("FPKM_cufflinks.tsv", row.names=1, header=TRUE, sep="\t", check.names = FALSE)
+
+# get metadata 
 gse <- getGEO(GEO = 'GSE81089', GSEMatrix = TRUE)
 metadata <- pData(phenoData(gse[[1]]))
-head(metadata) # have a glimpse of how metadata looks like
+head(metadata)  # Have a glimpse of how metadata looks like
 
+# Increase buffer size by setting `Sys.setenv("VROOM_CONNECTION_SIZE")`
+#Sys.setenv("VROOM_CONNECTION_SIZE" = 131072 * 1000)
+
+# Rename columns in metadata
+colnames(metadata)
+
+#write.table(metadata, file ="metadata.tsv", sep = "\t", row.names = FALSE, quote = FALSE)
 
 metadata <- metadata %>%
   rename(
-    Sample = 'tumor (t) or normal (n):ch1',
-    Source = 'source_name_ch1',
-    Tumor_stage = 'stage tnm:ch1',
-    Age = 'age:ch1',
-    Sex = 'gender:ch1',
-    Life_Status = 'dead:ch1',
-    Smoking_Status = 'smoking:ch1'
+    Sample = `tumor (t) or normal (n):ch1`,
+    Source = source_name_ch1,
+    Tumor_stage = `stage tnm:ch1`,
+    Age = `age:ch1`,
+    Sex = `gender:ch1`,
+    Life_Status = `dead:ch1`,
+    Smoking_Status = `smoking:ch1`
   )
 
 # Check updated column names
@@ -57,10 +43,14 @@ print(colnames(metadata))
 
 # Select only the renamed columns and overwrite metadata
 metadata <- metadata %>%
-  select(Sample, Source, Tumor_stage, Age, Sex, Life_Status, Smoking_Status)
+  select(Sample, Source, Tumor_stage, Age, Sex, Life_Status, Smoking_Status) 
+
+rownames(metadata) <- metadata$Sample
 
 # Check if the changes were applied
 head(metadata)
+
+#write.table(metadata, file ="metadata.tsv", sep = "\t", row.names = FALSE, quote = FALSE)
 
 # Remove the last row from Data
 head(Data)
@@ -69,6 +59,10 @@ Data <- Data[-nrow(Data), ]
 
 # Check if the last row is removed
 dim(Data)  # Check new dimensions
+
+# Explore Visualization of the data
+# Perform quick visualization of known lung cancer genes:
+# EGFR, KRAS, MET, LKB1, BRAF, PIK3CA, ALK, RET, and ROS1
 
 # Define the genes of interest
 genes_of_interest <- c("ENSG00000146648", "ENSG00000118046", "ENSG00000157764")
@@ -97,16 +91,18 @@ ggplot(expression_long, aes(x = Sample, y = Expression, fill = Gene)) +
        y = "Expression Level") +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))  # Rotate sample labels
 
-# Boxplot of gene expression by sex
-ggplot(expression_long, aes(x = Sex, y = Expression, fill = Sex)) +
+
+# Boxplot of gene expression by tumor stage
+ggplot(expression_long, aes(x = Tumor_stage, y = Expression, fill = Tumor_stage)) +
   geom_boxplot(alpha = 0.7, outlier.shape = NA) +  # Transparent boxplot
   geom_jitter(width = 0.2, alpha = 0.6) +  # Adds individual points for visibility
   facet_wrap(~ Gene, scales = "free_y") +  # Separate plots for each gene
   theme_minimal() +
-  labs(title = "Gene Expression Levels by Sex",
-       x = "Sex",
+  labs(title = "Gene Expression Levels by Tumor stage",
+       x = "Tumor stage",
        y = "Expression Level") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))  # Rotate labels for readability
+
 
 # Alternatively, you can use a violin plot
 ggplot(expression_long, aes(x = Tumor_stage, y = Expression, fill = Tumor_stage)) +
@@ -115,62 +111,118 @@ ggplot(expression_long, aes(x = Tumor_stage, y = Expression, fill = Tumor_stage)
   facet_wrap(~ Gene, scales = "free_y") +  # Separate plots per gene
   theme_minimal() +
   labs(title = "Gene Expression Levels by Tumor stage",
-       x = "Tumor_stage",
+       x = "Tumor stage",
        y = "Expression Level") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
-library(dplyr)
+#=======================================#
+# Differential Gene Expression Analysis #
+#=======================================#
+ 
+Counts <- read.delim("Raw_Counts_GSE81089.tsv", row.names=1, header=TRUE, sep="\t", check.names = FALSE)
 
-# Differential gene expression analysis
-
-# Making sure row names in colData match to column names in counts_data
-all(colnames(Data) %in% rownames(metadata))
+# Deseq2
+# making sure the row names in metadata matches to column names in Data
+all(colnames(Counts) %in% rownames(metadata))
 
 # Find Columns in Data That Are Not in metadata
-setdiff(colnames(Data), rownames(metadata))
+setdiff(colnames(Counts), rownames(metadata))
 
 # Remove everything after the underscore in Data
-colnames(Data) <- sub("_.*", "", colnames(Data))
+colnames(Counts) <- sub("_.*", "", colnames(Counts))
 
 # Check again if row names in metadata matches to column names in Data
-all(colnames(Data) %in% rownames(metadata))
+all(colnames(Counts) %in% rownames(metadata))
 
 # Check if they are in the same order
-all(colnames(Data) == rownames(metadata))
+all(colnames(Counts) == rownames(metadata))
 
 # Reorder metadata rows to match the column order in Data
-metadata <- metadata[match(colnames(Data), rownames(metadata)), , drop = FALSE]
+metadata <- metadata[match(colnames(Counts), rownames(metadata)), , drop = FALSE]
 
 # Check if they now match
-all(colnames(Data) == rownames(metadata))
+all(colnames(Counts) == rownames(metadata))
 
 # Check the values in the data
-summary(Data)
+summary(Counts)
 
 # Convert all data values to Absolute values. (Non-negative)
-Data <- abs(Data)
+Data <- abs(Counts)
 
 # Round values to integers
-Data <- round(Data)
+Data <- round(Counts)
 
-# step 2: construct a DESeqDataSet object
-dds <- DESeqDataSetFromMatrix(countData = Data,
-                       coldata = metadata,
-                       design = ~ Source)
+# Construct a DESeqDataSet object 
+dds <- DESeqDataSetFromMatrix(countData = Counts,
+  colData = metadata,
+  design = ~ Source)
 
-# keeping rows that have at least 10 reads
-keep <- rowSums(counts(dds)) >= 10
+dds
 
-# set factor level
+# Quality control
+# Remove genes with low counts
+keep2 <- rowMeans(counts(dds)) >=10
+dds <- dds[keep2,]
+
+# set the factor level
 dds$Source <- relevel(dds$Source, ref = "Human non-malignant tissue")
 
-# Step 3: run DESeq
+# Run DESeq
 dds <- DESeq(dds)
-res <- results(dds)
+res <- results(dds) # Differentially expressed genes are given
+
+res 
 
 # Explore results
-summary (res)
+summary(res)
 res0.01 <- results(dds, alpha = 0.01)
+summary(res0.01)
 
-# Contrasts
-resultsNames(dds)
+# MA plot
+plotMA(res0.01)
+
+
+#=======================================#
+# Individual Subquestion Tumor stage #
+#=======================================#
+
+# Redefine the genes of interest for subQ
+genes_of_interest_2 <- c("ENSG00000146648", "ENSG00000118046", "ENSG00000157764")
+
+# Rename NA into control and convert it into a factor
+metadata$Tumor_stage[is.na(metadata$Tumor_stage)] <- "Control"
+metadata$Tumor_stage <- as.factor(metadata$Tumor_stage)
+
+# Construct a DESeqDataSet object 
+dds2 <- DESeqDataSetFromMatrix(countData = Counts,
+                              colData = metadata,
+                              design = ~ Tumor_stage)
+
+dds2
+
+# Quality control
+# Remove genes with low counts
+keep2 <- rowMeans(counts(dds2)) >=10
+dds2 <- dds2[keep2,]
+
+# set the factor level
+dds2$Tumor_stage <- as.factor(dds2$Tumor_stage)
+dds2$Tumor_stage <- relevel(dds2$Tumor_stage, ref = "Control")
+
+# Run DESeq
+dds2 <- DESeq(dds2)
+res2 <- results(dds2) # Differentially expressed genes are given
+
+res2
+
+# Explore results
+summary(res2)
+res2_0.01 <- results(dds2, alpha = 0.01)
+summary(res2_0.01)
+
+# MA plot
+plotMA(res2_0.01)
+
+# Export DEG's to a tsv file
+res_df <- data.frame(Gene = rownames(res), res, row.names = NULL)  # Move row names to first column
+write.table(res_df, file = "DEG's_CancervsNon_Cancer_Cells.tsv", sep = "\t", quote = FALSE, row.names = FALSE, col.names = TRUE)

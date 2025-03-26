@@ -163,7 +163,7 @@ Data <- round(Data)
 # Construct a DESeqDataSet object 
 dds <- DESeqDataSetFromMatrix(countData = Data,
                               colData = metadata,
-                              design = ~ Life_Status)
+                              design = ~ Source)
 
 dds
 
@@ -175,7 +175,7 @@ dds <- dds[keep2,]
 dds
 
 # set the factor level
-dds$Life_Status <- relevel(dds$Life_Status, ref = "Control")
+dds$Source <- relevel(dds$Source, ref = "Human non-malignant tissue")
 
 # Run DESeq 
 dds <- DESeq(dds) # Deseq runs its normalization, and compares the two specified condition/groups (i.e. Human NSCLC tissue vs Human non-malignant tissue... etc)
@@ -186,7 +186,71 @@ res
 summary(res)
 plotMA(res)
 
-# Export DEG's to a tsv file
-res_df <- data.frame(Gene = rownames(res), res, row.names = NULL)  # Move row names to first column
-write.table(res_df, file = "DEG's_CancervsNon_Cancer_Cells.tsv", sep = "\t", quote = FALSE, row.names = FALSE, col.names = TRUE)
+#=======================================#
+# Individual analysis Life Status #
+#=======================================#
 
+# Ensure column names in Data match row names in metadata
+all(colnames(Data) %in% rownames(metadata))
+
+# Find Columns in Data That Are Not in metadata
+setdiff(colnames(Data), rownames(metadata))
+
+# Remove everything after the underscore in Data
+colnames(Data) <- sub("_.*", "", colnames(Data))
+
+# Check again if row names in metadata match column names in Data
+all(colnames(Data) %in% rownames(metadata))
+
+# Ensure they are in the same order
+all(colnames(Data) == rownames(metadata))
+
+# Reorder metadata rows to match the column order in Data
+metadata <- metadata[match(colnames(Data), rownames(metadata)), , drop = FALSE]
+
+# Verify alignment
+all(colnames(Data) == rownames(metadata))
+
+# Summary of data
+summary(Data)
+
+# Convert all values in Data to absolute values (non-negative)
+Data <- abs(Data)
+
+# Round values to integers
+Data <- round(Data)
+
+# Construct a DESeqDataSet object with Life Status as the design factor
+dds <- DESeqDataSetFromMatrix(countData = Data,
+                              colData = metadata,
+                              design = ~ Life_Status)
+
+dds
+
+# Quality control: Remove genes with low counts
+keep2 <- rowMeans(counts(dds)) >= 10
+dds <- dds[keep2,]
+
+dds
+
+# Set factor levels for Life_Status
+dds$Life_Status <- relevel(dds$Life_Status, ref = "0")  # Set reference level
+
+# Run DESeq for differential expression analysis
+dds <- DESeq(dds)
+
+# Extract results for Life Status comparison
+res <- results(dds, contrast = c("Life_Status", "0", "1"))  # Compare "Dead" vs "Alive"
+
+# Filter significant DEGs based on adjusted p-value < 0.01
+res0.01 <- results(dds, alpha =0.01)
+
+# Summary of differentially expressed genes (DEGs)
+summary(res0.01)
+
+# Plot MA plot for Life Status differential gene expression
+plotMA(res0.01, main = "MA Plot - Differential Expression (Life Status)", ylim = c(-5, 5))
+
+# Export DEG results to a file
+res_df <- data.frame(Gene = rownames(res), res, row.names = NULL)  # Move row names to first column
+write.table(res_df, file = "DEGs_LifeStatus.tsv", sep = "\t", quote = FALSE, row.names = FALSE, col.names = TRUE)

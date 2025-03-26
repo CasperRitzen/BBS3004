@@ -1,3 +1,4 @@
+
 # Load Libraries for RNA-seq Data Analysis
 library(DESeq2)
 library(dplyr)
@@ -43,7 +44,7 @@ print(colnames(metadata))
 
 # Select only the renamed columns and overwrite metadata
 metadata <- metadata %>%
-  select(Sample, Source, Tumor_stage, Age, Sex, Life_Status, Smoking_Status) 
+  select(Sample, Source, Tumor_stage, Age, Sex, Life_Status, Smoking_Status)
 
 rownames(metadata) <- metadata$Sample
 
@@ -81,19 +82,44 @@ expression_long <- expression_long %>%
 # View the structure of the transformed data
 print(head(expression_long))
 
+# Compute IQR for each gene and filter out outliers
+expression_filtered <- expression_long %>%
+  group_by(Gene) %>%  # Ensure outliers are removed per gene
+  mutate(Q1 = quantile(Expression, 0.25),
+         Q3 = quantile(Expression, 0.75),
+         IQR = Q3 - Q1) %>%
+  filter(Expression >= (Q1 - 1.5 * IQR) & Expression <= (Q3 + 1.5 * IQR)) %>%
+  select(-Q1, -Q3, -IQR)  # Remove extra columns
+
+# Rename NA into control and convert it into a factor
+metadata$Tumor_stage[is.na(metadata$Tumor_stage)] <- "Control"
+metadata$Tumor_stage <- as.factor(metadata$Tumor_stage)
+
 # Plot expression levels of selected genes
-ggplot(expression_long, aes(x = Sample, y = Expression, fill = Gene)) +
+ggplot(expression_filtered, aes(x = Sample, y = Expression, fill = Gene)) +
   geom_bar(stat = "identity", position = "dodge") +
   facet_wrap(~ Gene, scales = "free_y") +  # Separate plots per gene
   theme_minimal() +
-  labs(title = "Gene Expression Levels Across Samples",
+  labs(title = "Gene Expression Levels Across Samples (Outliers Removed)",
        x = "Sample",
        y = "Expression Level") +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))  # Rotate sample labels
 
+# Plot expression levels of selected genes for Tumor stage
+ggplot(expression_filtered, aes(x = Tumor_stage, y = Expression, fill = Gene)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  facet_wrap(~ Gene, scales = "free_y") +  # Separate plots per gene
+  theme_minimal() +
+  labs(title = "Gene Expression Levels Across Samples (Outliers Removed)",
+       x = "Sample",
+       y = "Expression Level") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))# Rotate sample labels
+
+# Rename NA into control in expression_filtered
+expression_filtered$Tumor_stage[is.na(expression_filtered$Tumor_stage)] <- "Control"
 
 # Boxplot of gene expression by tumor stage
-ggplot(expression_long, aes(x = Tumor_stage, y = Expression, fill = Tumor_stage)) +
+ggplot(expression_filtered, aes(x = Tumor_stage, y = Expression, fill = Tumor_stage)) +
   geom_boxplot(alpha = 0.7, outlier.shape = NA) +  # Transparent boxplot
   geom_jitter(width = 0.2, alpha = 0.6) +  # Adds individual points for visibility
   facet_wrap(~ Gene, scales = "free_y") +  # Separate plots for each gene
@@ -105,7 +131,7 @@ ggplot(expression_long, aes(x = Tumor_stage, y = Expression, fill = Tumor_stage)
 
 
 # Alternatively, you can use a violin plot
-ggplot(expression_long, aes(x = Tumor_stage, y = Expression, fill = Tumor_stage)) +
+ggplot(expression_filtered, aes(x = Tumor_stage, y = Expression, fill = Tumor_stage)) +
   geom_violin(alpha = 0.6) +  # Shows density of expression levels
   geom_jitter(width = 0.2, alpha = 0.7) +  # Adds individual sample points
   facet_wrap(~ Gene, scales = "free_y") +  # Separate plots per gene
@@ -187,7 +213,15 @@ plotMA(res0.01)
 #=======================================#
 
 # Redefine the genes of interest for subQ
-genes_of_interest_2 <- c("ENSG00000146648", "ENSG00000118046", "ENSG00000157764")
+genes_of_interest_2 <- c("ENSG00000204305", "ENSG00000107159", "ENSG00000129173")
+
+# Reconvert Data to a long format (genes in rows, samples in columns)
+expression_long_2 <- Data %>%
+  as.data.frame() %>%
+  rownames_to_column("Gene") %>%
+  filter(Gene %in% genes_of_interest_2) %>%
+  pivot_longer(cols = -Gene, names_to = "Sample", values_to = "Expression")
+
 
 # Rename NA into control and convert it into a factor
 metadata$Tumor_stage[is.na(metadata$Tumor_stage)] <- "Control"
@@ -216,7 +250,7 @@ res2 <- results(dds2) # Differentially expressed genes are given
 res2
 
 # Explore results
-summary(res2)
+summary(res2_0.01)
 res2_0.01 <- results(dds2, alpha = 0.01)
 summary(res2_0.01)
 
@@ -224,5 +258,5 @@ summary(res2_0.01)
 plotMA(res2_0.01)
 
 # Export DEG's to a tsv file
-res_df <- data.frame(Gene = rownames(res), res, row.names = NULL)  # Move row names to first column
-write.table(res_df, file = "DEG's_CancervsNon_Cancer_Cells.tsv", sep = "\t", quote = FALSE, row.names = FALSE, col.names = TRUE)
+res2_df <- data.frame(Gene = rownames(res2_0.01), res2_0.01, row.names = NULL)  # Move row names to first column
+write.table(res2_df, file = "DEG's_CancervsNon_Cancer_Cells.tsv", sep = "\t", quote = FALSE, row.names = FALSE, col.names = TRUE)

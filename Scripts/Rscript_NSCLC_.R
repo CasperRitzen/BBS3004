@@ -285,9 +285,6 @@ dds$Life_Status <- relevel(dds$Life_Status, ref = "0")  # Set reference level
 # Run DESeq for differential expression analysis
 dds <- DESeq(dds)
 
-# Extract results for Life Status comparison
-res <- results(dds, contrast = c("Life_Status", "0", "1"))  # Compare "Dead" vs "Alive"
-
 # Filter significant DEGs based on adjusted p-value < 0.01
 res0.01 <- results(dds, alpha =0.01)
 

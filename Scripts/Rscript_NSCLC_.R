@@ -92,8 +92,17 @@ expression_long$Life_Status[is.na(expression_long$Life_Status)] <- "Control"
 expression_long <- expression_long %>%
   filter(Sample != "L790T")
 
+# Compute IQR for each gene and filter out outliers
+expression_filtered <- expression_long %>%
+  group_by(Gene) %>%  # Ensure outliers are removed per gene
+  mutate(Q1 = quantile(Expression, 0.25),
+         Q3 = quantile(Expression, 0.75),
+         IQR = Q3 - Q1) %>%
+  filter(Expression >= (Q1 - 1.5 * IQR) & Expression <= (Q3 + 1.5 * IQR)) %>%
+  select(-Q1, -Q3, -IQR)  # Remove extra columns
+
 # Plot expression levels of selected genes
-ggplot(expression_long, aes(x = Sample, y = Expression, fill = Gene)) +
+ggplot(expression_filtered, aes(x = Sample, y = Expression, fill = Gene)) +
   geom_bar(stat = "identity", position = "dodge") +
   facet_wrap(~ Gene, scales = "free_y") +  # Separate plots per gene
   theme_minimal() +
@@ -102,9 +111,38 @@ ggplot(expression_long, aes(x = Sample, y = Expression, fill = Gene)) +
        y = "Expression Level") +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))  # Rotate sample labels
 
+# Compute IQR for each gene and filter out outliers
+expression_filtered <- expression_long %>%
+  group_by(Gene) %>%  # Ensure outliers are removed per gene
+  mutate(Q1 = quantile(Expression, 0.25),
+         Q3 = quantile(Expression, 0.75),
+         IQR = Q3 - Q1) %>%
+  filter(Expression >= (Q1 - 1.5 * IQR) & Expression <= (Q3 + 1.5 * IQR)) %>%
+  select(-Q1, -Q3, -IQR)  # Remove extra columns
+
+# Plot expression levels of selected genes
+ggplot(expression_filtered, aes(x = Life_Status, y = Expression, fill = Gene)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  facet_wrap(~ Gene, scales = "free_y") +  # Separate plots per gene
+  theme_minimal() +
+  labs(title = "Gene Expression Levels Across Samples (Outliers Removed)",
+       x = "Life_Status",
+       y = "Expression Level") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))  # Rotate sample labels
+
+
+# Compute IQR for each gene and filter out outliers
+expression_filtered <- expression_long %>%
+  group_by(Gene) %>%  # Ensure outliers are removed per gene
+  mutate(Q1 = quantile(Expression, 0.25),
+         Q3 = quantile(Expression, 0.75),
+         IQR = Q3 - Q1) %>%
+  filter(Expression >= (Q1 - 1.5 * IQR) & Expression <= (Q3 + 1.5 * IQR)) %>%
+  select(-Q1, -Q3, -IQR)  # Remove extra columns
+
 
 # Boxplot of gene expression by Life_Status
-ggplot(expression_long, aes(x = Life_Status, y = Expression, fill = Life_Status)) +
+ggplot(expression_filtered, aes(x = Life_Status, y = Expression, fill = Life_Status)) +
   geom_boxplot(alpha = 0.7, outlier.shape = NA) +  # Transparent boxplot
   geom_jitter(width = 0.2, alpha = 0.6) +  # Adds individual points for visibility
   facet_wrap(~ Gene, scales = "free_y") +  # Separate plots for each gene
@@ -114,9 +152,18 @@ ggplot(expression_long, aes(x = Life_Status, y = Expression, fill = Life_Status)
        y = "Expression Level") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))  # Rotate labels for readability
 
+# Compute IQR for each gene and filter out outliers
+expression_filtered <- expression_long %>%
+  group_by(Gene) %>%  # Ensure outliers are removed per gene
+  mutate(Q1 = quantile(Expression, 0.25),
+         Q3 = quantile(Expression, 0.75),
+         IQR = Q3 - Q1) %>%
+  filter(Expression >= (Q1 - 1.5 * IQR) & Expression <= (Q3 + 1.5 * IQR)) %>%
+  select(-Q1, -Q3, -IQR)  # Remove extra columns
+
 
 # Alternatively, you can use a violin plot
-ggplot(expression_long, aes(x = Life_Status, y = Expression, fill = Life_Status)) +
+ggplot(expression_filtered, aes(x = Life_Status, y = Expression, fill = Life_Status)) +
   geom_violin(alpha = 0.6) +  # Shows density of expression levels
   geom_jitter(width = 0.2, alpha = 0.7) +  # Adds individual sample points
   facet_wrap(~ Gene, scales = "free_y") +  # Separate plots per gene
@@ -125,7 +172,6 @@ ggplot(expression_long, aes(x = Life_Status, y = Expression, fill = Life_Status)
        x = "Life_Status",
        y = "Expression Level") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
 #=======================================#
 # Differential Gene Expression Analysis #
 #=======================================#

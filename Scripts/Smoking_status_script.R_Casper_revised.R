@@ -59,25 +59,13 @@ dim(Data)  # Check new dimensions
 # EGFR, KRAS, MET, LKB1, BRAF, PIK3CA, ALK, RET, and ROS1
 
 # Define the genes of interest
-genes_of_interest <- c("ENSG00000146648", "ENSG00000133703", "ENSG00000157764")
-#ENSG00000146648=EGFR
-#ENSG00000133703= KRAS
-#ENSG00000157764= BRAF
 
-gene_name_map <- c(
-  "ENSG00000146648" = "EGFR",
-  "ENSG00000133703" = "KRAS",
-  "ENSG00000157764" = "BRAF"
-)
+genes_of_interest <- c("ENSG00000087494", "ENSG00000133048", "ENSG00000001084")
 
-genes_of_interest <- c("ENSG00000180318", "ENSG00000133048", "ENSG00000001084")
-
-#ENSG00000180318=ALX1
+#PTHLH =ENSG00000087494
 #ENSG00000133048=CHI3L1
 #ENSG00000001084=GCLC
 
-#renaming gene codes
-genes_of_interest_named <- 
 # Convert Data to a long format (genes in rows, samples in columns)
 expression_long <- Data %>%
   as.data.frame() %>%
@@ -100,10 +88,6 @@ expression_long$Smoking_Status <- recode(expression_long$Smoking_Status,
 #turning NA into Control
 expression_long$Smoking_Status[is.na(expression_long$Smoking_Status)] <- "Control"
 
-#renaming gene codes
-df$Gene <- factor(df$gene, 
-                  levels = c("G1", "G2", "G3", "G4"), 
-                  labels = c("BRCA1", "TP53", "EGFR", "MYC"))
 
 # Compute IQR for each gene and filter out outliers
 expression_filtered <- expression_long %>%
@@ -114,16 +98,24 @@ expression_filtered <- expression_long %>%
   filter(Expression >= (Q1 - 1.5 * IQR) & Expression <= (Q3 + 1.5 * IQR)) %>%
   select(-Q1, -Q3, -IQR)  # Remove extra columns
 
-# Plot expression levels of selected genes
-ggplot(expression_filtered, aes(x = Smoking_Status, y = Expression, fill = Gene)) +
+
+# Compute mean expression per Gene and Smoking_Status
+expression_avg <- expression_filtered %>%
+  group_by(Smoking_Status, Gene) %>%
+  summarize(Average_Expression = mean(Expression, na.rm = TRUE), .groups = "drop")
+
+# Plot with averaged values
+ggplot(expression_avg, aes(x = Smoking_Status, y = Average_Expression, fill = Gene)) +
   geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label = round(Average_Expression, 1)),  # Show rounded average values
+            position = position_dodge(width = 0.9), 
+            vjust = -0.5, size = 4) +  
   facet_wrap(~ Gene, scales = "free_y") +  # Separate plots per gene
   theme_minimal() +
-  labs(title = "Gene Expression Levels Across Samples",
-       x = "Sample",
-       y = "Expression Level") +
+  labs(title = "Average Gene Expression Levels Across Samples",
+       x = "Smoking Status",
+       y = "Average Expression Level") +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))  # Rotate sample labels
-
 
 # Boxplot of gene expression by Smoking Status
 ggplot(expression_filtered, aes(x = Smoking_Status, y = Expression, fill = Smoking_Status)) +
@@ -138,7 +130,7 @@ ggplot(expression_filtered, aes(x = Smoking_Status, y = Expression, fill = Smoki
 
 
 # Alternatively, you can use a violin plot
-ggplot(expression_l, aes(x = Smoking_Status, y = Expression, fill = Smoking_Status)) +
+ggplot(expression_filtered, aes(x = Smoking_Status, y = Expression, fill = Smoking_Status)) +
   geom_violin(alpha = 0.6) +  # Shows density of expression levels
   geom_jitter(width = 0.2, alpha = 0.7) +  # Adds individual sample points
   facet_wrap(~ Gene, scales = "free_y") +  # Separate plots per gene

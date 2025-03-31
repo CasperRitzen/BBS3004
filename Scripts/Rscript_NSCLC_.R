@@ -299,5 +299,5 @@ summary(res0.01)
 plotMA(res0.01, main = "MA Plot - Differential Expression (Life Status)", ylim = c(-5, 5))
 
 # Export DEG results to a file
-res_df <- data.frame(Gene = rownames(res), res, row.names = NULL)  # Move row names to first column
+res_df <- data.frame(Gene = rownames(res0.01), res0.01, row.names = NULL)  # Move row names to first column
 write.table(res_df, file = "DEGs_LifeStatus.tsv", sep = "\t", quote = FALSE, row.names = FALSE, col.names = TRUE)

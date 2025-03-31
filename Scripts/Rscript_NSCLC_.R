@@ -85,7 +85,11 @@ print(head(expression_long))
 metadata <- metadata %>%
   mutate(across(everything(), ~replace_na(.x, "Control")))
 
-# Replace NA in Life_Status column with "Control"
+# Replace NA values with "Control" in all relevant columns
+expression_long <- expression_long %>%
+  mutate(across(everything(), ~replace_na(.x, "Control")))
+
+# Ensure "Life_Status" specifically has no NA values
 expression_long$Life_Status[is.na(expression_long$Life_Status)] <- "Control"
 
 # Remove the "L790T" sample from expression_long

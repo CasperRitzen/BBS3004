@@ -189,21 +189,40 @@ plotMA(res0.01)
 #=======================================#
 
 # Redefine genes of interest
-genes_of_interest <- c("ENSG00000134184", "ENSG00000166949", "ENST00000550429.1") 
+genes_of_interest <- c("ENSG00000134184", "ENSG00000166949", "ENSG00000178726") 
+
+# Redefine genes of interest (adjust for your selected genes)
+genes_of_interest <- c("ENSG00000134184", "ENSG00000166949", "ENSG00000178726") 
+
+# Convert expression data into long format (for boxplot)
+expression_long <- Data %>%
+  as.data.frame() %>%
+  rownames_to_column("Gene") %>%
+  filter(Gene %in% genes_of_interest) %>%
+  pivot_longer(cols = -Gene, names_to = "Sample", values_to = "Expression")
 
 ENSG00000134184 --> GSTM1 
 ENSG00000166949 --> SMAD3
-ENST00000550429.1--> KIF21A-208
+ENSG00000178726 -->THBD
 
 # Ensure that Age is a numerical variable in metadata
 metadata$Age <- as.numeric(metadata$Age)
 
-# Replace NA values with "Control"
-metadata$AgeGroup[is.na(metadata$AgeGroup)] <- "Control"
-metadata$Age <- as.numeric(metadata$Age)  # Convert Age to numeric
+# Convert Age to numeric
+metadata$Age <- as.numeric(metadata$Age)
+
+# Define age groups
 metadata$AgeGroup <- cut(metadata$Age, 
-                         breaks = c(0, 30, 50, 70, Inf), 
-                         labels = c("Young", "Middle-aged", "Older", "Elderly"))  # Categorize into groups
+                         breaks = c(44, 54, 64, 74, 84),  # Adjusted for correct binning
+                         labels = c("Younger Middle-aged", "Older Middle-aged", "Older Adults", "Elderly"),
+                         right = TRUE)  # Ensures the upper bound is included
+
+# Convert to categorical factor
+metadata$AgeGroup <- as.factor(metadata$AgeGroup)
+
+# Check if the grouping is correct
+table(metadata$AgeGroup)
+
 metadata$AgeGroup <- as.factor(metadata$AgeGroup)  # Convert to categorical variable
 
 Counts <- Counts[, colSums(is.na(Counts)) == 0]
@@ -237,16 +256,8 @@ ncol(Counts) == nrow(metadata)
 dds_age <- DESeqDataSetFromMatrix(countData = Counts,
                                   colData = metadata,
                                   design = ~ AgeGroup)
-# Rename levels of AgeGroup
-levels(dds_age$AgeGroup) <- c("Young", "Middle-Aged", "Old")  # Adjust as needed
-
-# Now, you can safely relevel it
-dds_age$AgeGroup <- relevel(dds_age$AgeGroup, ref = "Young")
-
-dds_age$AgeGroup <- relevel(dds_age$AgeGroup, ref = "Young")
 
 dds_age
-
 
 # Run DESeq 
 dds_age <- DESeq(dds_age)
@@ -261,18 +272,38 @@ res_age_0.05 <- results(dds_age, alpha = 0.05)
 # MA Plot 
 plotMA(res_age, main = "MA Plot for Age", ylim = c(-5, 5))
 
+# Ensure AgeGroup is a factor
+dds_age$AgeGroup <- factor(dds_age$AgeGroup, levels = c("Younger Middle-aged", 
+                                                        "Older Middle-aged", 
+                                                        "Older Adults", 
+                                                        "Elderly"))
+
+
+# Set "Younger Middle-aged" as the reference level
+dds_age$AgeGroup <- relevel(dds_age$AgeGroup, ref = "Younger Middle-aged")
+
+dds_age <- DESeqDataSetFromMatrix(countData = Counts,
+                                  colData = metadata,
+                                  design = ~ AgeGroup)
+
+dds_age$AgeGroup <- relevel(dds_age$AgeGroup, ref = "Younger Middle-aged")
+dds_age <- DESeq(dds_age)
+
+metadata <- metadata %>% select(-Age)  # Keep only AgeGroup
+
+# Run DESeq
+dds_age <- DESeq(dds_age)
+
+metadata$AgeGroup <- droplevels(metadata$AgeGroup)
+dds_age$AgeGroup <- droplevels(dds_age$AgeGroup)
 
 # Get the count data for the specific gene of interest (you can change the gene here)
 gene_counts <- plotCounts(dds_age, gene = gene_of_interest, intgroup = "AgeGroup", returnData = TRUE)
 
-# Now, create a boxplot to visualize the expression levels by Age Group
-ggplot(gene_counts, aes(x = AgeGroup, y = count, fill = AgeGroup)) +
-  geom_boxplot() +
-  theme_minimal() +
-  labs(title = paste("Expression of", gene_of_interest, "by Age Group"),
-       x = "Age Group",
-       y = "Normalized Count") +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+# Merge expression data with metadata
+expression_long <- expression_long %>%
+  left_join(metadata, by = "Sample")
+
 
 
 # Remove the last row from Data
@@ -293,8 +324,42 @@ dim(counts(dds_age))
 dds_age <- DESeq(dds_age)
 res_age <- results(dds_age)
 
+
 # Confirm the size of res_age
 dim(res_age)  # It should match the number of rows in your count matrix
+
+# Relevel the AgeGroup factor with "Elderly" as the reference group
+metadata$AgeGroup <- relevel(metadata$AgeGroup, ref = "Elderly")
+
+# Check the updated levels
+levels(metadata$AgeGroup)
+
+# Check the updated levels
+levels(metadata$AgeGroup)
+
+
+ggplot(expression_long %>% filter(!is.na(AgeGroup)),  # Remove NA values
+       aes(x = AgeGroup, y = Expression, fill = AgeGroup)) +
+  geom_boxplot() +
+  facet_wrap(~ Gene, scales = "free_y") +  # Separate boxplots for each gene
+  theme_minimal() +
+  labs(title = "Gene Expression by Age Group",
+       x = "Age Group",
+       y = "Expression Level") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))  # Rotate labels for readability
+
+
+ggplot(expression_long %>% filter(!is.na(Expression), !is.na(AgeGroup)), 
+       aes(x = AgeGroup, y = Expression, fill = AgeGroup)) +
+  stat_summary(fun = mean, geom = "bar", position = "dodge") +  # Keep only mean bar
+  stat_summary(fun = mean, geom = "text", aes(label = round(..y.., 2)), 
+               vjust = -0.5, size = 4, color = "black") +  # Add values above bars
+  facet_wrap(~ Gene, scales = "free_y") +
+  theme_minimal() +
+  labs(title = "Mean Gene Expression by Age Group",
+       x = "Age Group",
+       y = "Mean Expression Level") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 
 # Export DEG's to a tsv file

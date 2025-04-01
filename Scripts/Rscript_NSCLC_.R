@@ -284,7 +284,7 @@ dds <- dds[keep2,]
 dds
 
 # Set factor levels for Life_Status
-dds$Life_Status <- relevel(dds$Life_Status, ref = "0")  # Set reference level
+dds$Life_Status <- relevel(dds$Life_Status, ref = "Control)  # Set reference level
 
 # Run DESeq for differential expression analysis
 dds <- DESeq(dds)

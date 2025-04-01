@@ -60,12 +60,12 @@ Data <- Data[-nrow(Data), ]
 # Check if the last row is removed
 dim(Data)  # Check new dimensions
 
-# Explore Visualization of the data
-# Perform quick visualization of known lung cancer genes:
-# EGFR, KRAS, MET, LKB1, BRAF, PIK3CA, ALK, RET, and ROS1
-
 # Define the genes of interest
 genes_of_interest <- c("ENSG00000146648", "ENSG00000118046", "ENSG00000157764")
+
+# ENSG00000146648 = EGFR
+# ENSG00000118046 = STK11
+# ENSG00000157764 = BRAF
 
 # Convert Data to a long format (genes in rows, samples in columns)
 expression_long <- Data %>%
@@ -81,6 +81,18 @@ expression_long <- expression_long %>%
 # View the structure of the transformed data
 print(head(expression_long))
 
+# Replace NA values in the Sample column with "Control"
+expression_long$Sample[is.na(expression_long$Sample)] <- "Control"
+
+# Compute IQR for each gene and filter out outliers
+expression_filtered <- expression_long %>%
+  group_by(Gene) %>%  # Ensure outliers are removed per gene
+  mutate(Q1 = quantile(Expression, 0.25),
+         Q3 = quantile(Expression, 0.75),
+         IQR = Q3 - Q1) %>%
+  filter(Expression >= (Q1 - 1.5 * IQR) & Expression <= (Q3 + 1.5 * IQR)) %>%
+  select(-Q1, -Q3, -IQR)  # Remove extra columns
+
 # Plot expression levels of selected genes
 ggplot(expression_long, aes(x = Sample, y = Expression, fill = Gene)) +
   geom_bar(stat = "identity", position = "dodge") +
@@ -88,6 +100,16 @@ ggplot(expression_long, aes(x = Sample, y = Expression, fill = Gene)) +
   theme_minimal() +
   labs(title = "Gene Expression Levels Across Samples",
        x = "Sample",
+       y = "Expression Level") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))  # Rotate sample labels
+
+# Histogram expression levels of selected genes
+ggplot(expression_filtered, aes(x = Source, y = Expression, fill = Gene)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  facet_wrap(~ Gene, scales = "free_y") +  # Separate plots per gene
+  theme_minimal() +
+  labs(title = "Gene Expression Levels Across Samples (Outliers Removed)",
+       x = "Source (NSCLC vs Control)",
        y = "Expression Level") +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))  # Rotate sample labels
 
@@ -104,7 +126,6 @@ ggplot(expression_long, aes(x = Sex, y = Expression, fill = Sex)) +
        x = "Sex",
        y = "Expression Level") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))  # Rotate labels for readability
-
 
 # Alternatively, you can use a violin plot
 ggplot(expression_long, aes(x = Sex, y = Expression, fill = Sex)) +
@@ -172,15 +193,56 @@ res0.01 <- results(dds, alpha =0.01) #Question sig 0.01 or 0.05
 summary(res0.01)
 
 # MA plot
-plotMA(res)
+plotMA(res, main = "Differential Gene Expression Analysis: MA Plot (Malignant vs. Non-Malignant Tissue)")
 
+# ENSG00000146648 = EGFR
+# ENSG00000118046 = STK11
+# ENSG00000157764 = BRAF
+
+# Boxplot for a specific gene (e.g., "GENE_OF_INTEREST")
+gene_of_interest <- "ENSG00000157764"  # Replace with gene of interest
+gene_counts <- plotCounts(dds, gene = gene_of_interest, intgroup = "Source", returnData = TRUE)
+
+# Remove outliers using IQR method
+Q1 <- quantile(gene_counts$count, 0.25)
+Q3 <- quantile(gene_counts$count, 0.75)
+IQR <- Q3 - Q1
+
+# Filter out outliers
+gene_counts_filtered <- gene_counts %>%
+  filter(count >= (Q1 - 1.5 * IQR) & count <= (Q3 + 1.5 * IQR))
+
+# Plot without outliers
+ggplot(gene_counts_filtered, aes(x = Source, y = count, fill = Source)) +
+  geom_boxplot() +
+  theme_minimal() +
+  labs(title = paste("Expression of BRAF across source groups (outliers removed)"),
+       x = "Source",
+       y = "Normalized Count")
+
+# Descriptive statistics
+gene_stats <- gene_counts_filtered %>%
+  group_by(Source) %>%  # Group by the "Source" variable (e.g., tumor vs normal tissue)
+  summarise(
+    Min = min(count),          # Minimum count
+    Q1 = quantile(count, 0.25),  # 1st Quartile (25th percentile)
+    Median = median(count),    # Median (50th percentile)
+    Mean = mean(count),        # Mean
+    Q3 = quantile(count, 0.75),  # 3rd Quartile (75th percentile)
+    Max = max(count),          # Maximum count
+    SD = sd(count)             # Standard deviation
+  )
+print(gene_stats)
 
 #=======================================#
 # Individual analysis Sex #
 #=======================================#
+# ENSG00000146648 = EGFR
+# ENSG00000012048 = BRCA1
+# ENSG00000019186 = CYP24A1
 
 # Redefine genes of interest
-genes_of_interest <- c("ENSG00000146648", "ENSG00000118046", "ENSG00000157764") #Should I use MOET for this?
+genes_of_interest <- c("ENSG00000012048", "ENSG00000146648", "ENSG00000019186") 
 
 # Ensure that Sex is a categorical variable in metadata
 table(metadata$Sex)  # Check the levels of Sex
@@ -200,10 +262,10 @@ dds_sex
 keep <- rowMeans(counts(dds_sex)) >= 10
 dds_sex <- dds_sex[keep,]
 
-levels(dds_sex$Sex) #Checking to see if I should use Male or male in the next code. I should use male.
+levels(dds_sex$Sex) #Checking to see if I should use Female or female in the next code.
 
-# Setting "male" (or another reference category) as the baseline to compare males vs. females
-dds_sex$Sex <- relevel(dds_sex$Sex, ref = "male")  # Adjust reference if needed
+# Setting "female" as the baseline to compare females vs. males
+dds_sex$Sex <- relevel(dds_sex$Sex, ref = "female")  # Adjust reference if needed
 
 # Run DESeq 
 dds_sex <- DESeq(dds_sex)
@@ -224,16 +286,42 @@ head(sig_genes, 10)  # View top 10 significant genes
 # MA Plot 
 plotMA(res_sex, main = "MA Plot for Sex", ylim = c(-5, 5))
 
+# ENSG00000146648 = EGFR
+# ENSG00000012048 = BRCA1
+# ENSG00000019186 = CYP24A1
+
 # Boxplot of Expression Levels for Specific Genes
-gene_of_interest <- "ENSG00000118046"  # Change to any gene of interest
+gene_of_interest <- "ENSG00000019186"  # Change to any gene of interest
 gene_counts <- plotCounts(dds_sex, gene = gene_of_interest, intgroup = "Sex", returnData = TRUE)
 
+# Remove outliers
+gene_counts <- gene_counts %>%
+  mutate(Q1 = quantile(count, 0.25),
+         Q3 = quantile(count, 0.75),
+         IQR = Q3 - Q1) %>%
+  filter(count >= (Q1 - 1.5 * IQR) & count <= (Q3 + 1.5 * IQR)) %>%
+  select(-Q1, -Q3, -IQR)
+
+# Boxplot of Expression Levels for Specific Genes
 ggplot(gene_counts, aes(x = Sex, y = count, fill = Sex)) +
   geom_boxplot() +
   theme_minimal() +
-  labs(title = paste("Expression of", gene_of_interest, "by Sex"),
+  labs(title = paste("Expression of CYP24A1 by Sex"),
        x = "Sex",
        y = "Normalized Count")
+
+# Descriptive statistics
+gene_counts %>%
+  group_by(Sex) %>%
+  summarise(
+    Min = min(count),
+    Q1 = quantile(count, 0.25),
+    Median = median(count),
+    Mean = mean(count),
+    Q3 = quantile(count, 0.75),
+    Max = max(count),
+    SD = sd(count)
+  )
 
 # Export DEG's to a tsv file
 res_df <- data.frame(Gene = rownames(res), res, row.names = NULL)  # Move row names to first column

@@ -285,8 +285,8 @@ dds_age <- DESeqDataSetFromMatrix(countData = Counts,
                                   colData = metadata,
                                   design = ~ AgeGroup)
 
-dds_age$AgeGroup <- relevel(dds_age$AgeGroup, ref = "Younger Middle-aged")
-dds_age <- DESeq(dds_age)
+# Set "Elderly" as the reference (control) group
+metadata$AgeGroup <- relevel(metadata$AgeGroup, ref = "Elderly")
 
 metadata <- metadata %>% select(-Age)  # Keep only AgeGroup
 

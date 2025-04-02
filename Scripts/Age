@@ -252,11 +252,10 @@ dim(metadata)  # Should return (samples x metadata_columns)
 
 ncol(Counts) == nrow(metadata)
 
-# Construct a DESeqDataSet object with variable Sex
+# Construct a DESeqDataSet object with variable Age Groups
 dds_age <- DESeqDataSetFromMatrix(countData = Counts,
                                   colData = metadata,
                                   design = ~ AgeGroup)
-
 dds_age
 
 # Run DESeq 
